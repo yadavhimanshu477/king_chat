@@ -1,0 +1,176 @@
+<html>
+    <head>
+        <title>Login Here</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
+        <script>
+            $(function () {
+                var socket = io.connect('http://localhost:9000')
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    localStorage.clear()
+                    window.location = '/logout'
+
+                }
+                const sender = localStorage.getItem('username');
+                socket.emit('addChatSocket', sender)
+
+                $(document).on('keypress', '.text_message', function (e) {
+                    const reciever = $('.chat_person').text()
+                    if(e.keyCode == 13) {
+                        const text = $('.text_message').val();
+                        $('.text_message').val('');
+                        $('.append_message').append('<div class="row"><div class="col-md-12">'+text+'</div></div>');
+                        if($('.text_message').hasClass('group_textarea')) {
+                            socket.emit('new_group_message', { message: text, sender: sender, group: reciever });
+                        } else {
+                            socket.emit('new_message', { message: text, sender: sender, reciever: reciever });
+                        }
+                    }
+                })
+
+                $(document).on('click', '.user', function () {
+                    const chat_person = $(this).text();
+                    $('.chat_person').text(chat_person);
+                    $('.append_message').html('')
+                    $('.textarea_div').html('<textarea class="md-textarea form-control text_message"></textarea>')
+                })
+
+                $(document).on('click', '.group', function () {
+                    const chat_person = $(this).text();
+                    $('.chat_person').text(chat_person);
+                    $('.append_message').html('')
+                    $('.textarea_div').html('<textarea class="md-textarea form-control text_message group_textarea"></textarea>')
+                })
+
+                $('.create_group').on('click', function () {
+                    const group = $('.group_users').val()
+                    const group_name = $('.group_name').val()
+                    if (group && group_name) {
+                        const users = group.split(',');
+                        if (users.length < 2) {
+                            $('.group_failure').show()
+                            setTimeout(function() { $(".group_failure").hide(); }, 5000);
+                            return 0
+                        }
+                        socket.emit('create_group', { users: users, group_name: group_name });
+                        $('.group_success').show()
+                        setTimeout(function() { $(".group_success").hide(); }, 5000);
+                        $('.group_users').val('')
+                        $('.group_name').val('')
+                    } else {
+                        $('.group_failure').show()
+                        setTimeout(function() { $(".group_failure").hide(); }, 5000);
+                    }
+                })
+
+                $('.logout').on('click', function (e){
+                    e.preventDefault()
+                    localStorage.clear()
+                    window.location = '/logout';
+                })
+
+                socket.on('all_loginUsers_userGroups', function (data) {
+                    Object.keys(data.chat_room).forEach(function(key){
+                        console.log("key ::: "+key)
+                        if(key != sender) {
+                            $('.login_users').append('<div class="col-md-12 panel panel-default user" style="text-align:center;font-size:20px">'+key+'</div>');
+                        }
+                    });
+                    for (var key in data.group_room) {
+                      $('.user_groups').append('<div class="col-md-12 panel panel-default group" style="text-align:center;font-size:20px">'+key+'</div>')
+                    }
+                })
+
+                socket.on('new_group', function (data) {
+                    const group_name = data.group_name
+                    $('.user_groups').append('<div class="col-md-12 panel panel-default group" style="text-align:center;font-size:20px">'+group_name+'</div>')
+                })
+
+                socket.on('new_group_message', function (data) {
+                    const group_name = data.group_name
+                    const sender = data.sender
+                    const message = data.message
+                    if ($('.chat_person').text() == group_name) {
+                        $('.append_message').append('<div class="row"><div class="col-md-12" style="text-align: right">'+sender+': '+data.message+'</div></div>');
+                    }
+                    else if($('.chat_person').text() == '') {
+                        $('.chat_person').text(group_name);
+                        $('.append_message').html('')
+                        $('.append_message').append('<div class="row"><div class="col-md-12" style="text-align: right">'+sender+': '+data.message+'</div></div>');
+                    }
+                    $('.textarea_div').html('<textarea class="md-textarea form-control text_message group_textarea"></textarea>')
+                })
+
+                socket.on('new_message', function (data) {
+                    const sender = data.sender
+                    if ($('.chat_person').text() == sender) {
+                        $('.append_message').append('<div class="row"><div class="col-md-12" style="text-align: right">'+data.message+'</div></div>');
+                    }
+                    else if($('.chat_person').text() == '') {
+                        $('.chat_person').text(sender);
+                        $('.append_message').html('')
+                        $('.append_message').append('<div class="row"><div class="col-md-12" style="text-align: right">'+data.message+'</div></div>');
+                    }
+                    $('.textarea_div').html('<textarea class="md-textarea form-control text_message"></textarea>')
+                })
+            })
+        </script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    </head>
+    <body class="container">
+
+        <nav class="navbar navbar-default">
+            <div class="container-fluid">
+                <!-- Collect the nav links, forms, and other content for toggling -->
+                <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                    <ul class="nav navbar-nav">
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/dashboard">Dashboard</a></li>
+                    </ul>
+
+                    <ul class="nav navbar-nav navbar-right">
+                        <li><a class="logout" href="/logout">Log Out</a></li>
+                    </ul>
+                </div><!-- /.navbar-collapse -->
+            </div><!-- /.container-fluid -->
+        </nav>
+
+        <div class="container row">
+           <h1>Hi, Welcome to your Dashboard</h1>
+           <div class="col-md-12" style="margin-bottom: 15px">
+                <div class="col-md-12">
+                    <label>Create new group : </lable>
+                </div>
+                <div class="col-md-6">
+                    <input class="form-control group_users" type="text" placeholder="enter user's name comma seperated">
+                </div>
+                <div class="col-md-3">
+                    <input class="form-control group_name" type="text" placeholder="enter group name">
+                </div>
+                <div>
+                    <button class="btn btn-default create_group">Create</button>
+                </div>
+           </div>
+           <div class="col-md-12 alert alert-success group_success" style="display: none">
+              <strong>Group created successfully.</strong>
+           </div>
+           <div class="col-md-12 alert alert-danger group_failure" style="display: none">
+              <strong> Please enter both fields and minimum two comma seperated user's.</strong>
+           </div>
+           <div class="col-md-12 panel panel-default" style="height: 400px">
+                <div class="col-md-4 panel panel-default" style="height: 100%; margin-left: -15px">
+                   <div class="col-md0-12" style=""><center>Login Users:</center></div>
+                   <div class="col-md-12 login_users" style="max-height: 160px; min-height: 145px; overflow-y: auto;"></div>
+                   <div class="col-md0-12" style=""><center>User Groups:</center></div>
+                   <div class="col-md-12 user_groups" style="overflow-y: auto; max-height: 160px;"></div>
+                </div>
+                <div class="col-md-8" style="height: 100%">
+                    <div class="col-md-12 chat_person panel panel-default" style="text-align: center; font-size: 20px;margin-left: -15px;margin-right: -15px"></div>
+                    <div class="col-md-12 append_message" style="height: 80%"></div>
+                    <div class="col-md-12 textarea_div" style="float: right"></div>
+                </div>
+           </div>
+        </div>
+    </body>
+</html>
